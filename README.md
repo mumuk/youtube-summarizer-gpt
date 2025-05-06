@@ -23,7 +23,7 @@ A Node.js-based agent that summarizes YouTube videos by extracting transcripts a
 .
 ├── index.js
 ├── routes/
-│   └── transcriptRoute.js
+│   └── transcript.js
 ├── services/
 │   └── transcriptService.js
 ├── .env.example
