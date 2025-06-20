@@ -1,9 +1,11 @@
 // services/semanticSplitter.js
 
 import OpenAI from 'openai';
-import { countTokens, trimByTokens } from './tokenCounter.js';
+import {countTokens, trimByTokens} from './tokenCounter.js';
+import dotenv from 'dotenv';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+dotenv.config();
+const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
 
 /**
  * Разбивает текст транскрипта на смысловые блоки, определяет язык текста и при необходимости переводит результаты.
@@ -19,9 +21,7 @@ export async function splitTranscriptWithGPT(text, transcriptLanguage) {
     // Шаг 1: обрезка текста по токенам
     let inputTokens = countTokens(text);
     if (inputTokens > MAX_INPUT_TOKENS) {
-        console.warn(
-            `[splitGPT] Input tokens ${inputTokens} exceed max ${MAX_INPUT_TOKENS}, trimming by tokens.`
-        );
+        console.warn(`[splitGPT] Input tokens ${inputTokens} exceed max ${MAX_INPUT_TOKENS}, trimming by tokens.`);
         text = trimByTokens(text, MAX_INPUT_TOKENS);
         inputTokens = countTokens(text);
     }
@@ -69,26 +69,22 @@ You are a Prompt Engineer that segments a video transcript into semantic blocks,
 Transcript text (${inputTokens} tokens):
 ${text}`;
 
-    console.log(
-        `[splitGPT] Calling model ${model} (system tokens: ${countTokens(systemPrompt)}, transcript tokens: ${inputTokens})`
-    );
+    console.log(`[splitGPT] Calling model ${model} (system tokens: ${countTokens(systemPrompt)}, transcript tokens: ${inputTokens})`);
 
     try {
         const response = await openai.chat.completions.create({
-            model,
-            temperature: 0.4,
-            messages: [{ role: 'system', content: systemPrompt }]
+            model, temperature: 0.4, messages: [{role: 'system', content: systemPrompt}]
         });
 
         const raw = response.choices[0].message.content.trim();
         const match = raw.match(/\{[\s\S]*\}/);
         if (!match) {
             console.error('[splitGPT] No JSON object found in response:', raw);
-            return { textLanguage: '', blocks: [] };
+            return {textLanguage: '', blocks: []};
         }
         return JSON.parse(match[0]);
     } catch (error) {
         console.error('[splitGPT] OpenAI request failed:', error);
-        return { textLanguage: '', blocks: [] };
+        return {textLanguage: '', blocks: []};
     }
 }
