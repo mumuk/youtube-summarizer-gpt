@@ -1,90 +1,92 @@
 // services/semanticSplitter.js
+// ------------------------------------------------------------
+// Splits a cleaned YouTube transcript into coherent semantic
+// blocks by chunking and calling GPT in parallel, then merging.
+// Uses utils/textChunker for chunk configuration and splitting.
+// ------------------------------------------------------------
 
-import OpenAI from 'openai';
-import {countTokens, trimByTokens} from './tokenCounter.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
+import OpenAI from "openai";
+import { computeChunkConfig, splitByTokenCount } from "../utils/textChunker.js";
+import { prompt41, prompt4o, Models } from "../prompts/semanticPrompts.js";
+import pLimit from "p-limit";
+import { countTokens } from "../utils/tokenCounter.js";
 
 /**
- * Разбивает текст транскрипта на смысловые блоки, определяет язык текста и при необходимости переводит результаты.
+ * Splits transcript text into semantic blocks via GPT using optimized chunking.
+ * Logs number of requests and tokens per chunk.
  *
- * @param {string} text - Полный очищенный текст транскрипта.
- * @param {string} [transcriptLanguage] - Желаемый язык вывода (для заголовков и текста). Если не указан или совпадает с исходным, выводят на языке транскрипта.
- * @returns {Promise<{textLanguage: string, blocks: Array<{title: string, text: string, tokens: number}>}>}
+ * @param {string} text - cleaned transcript text
+ * @param {string} [transcriptLanguage] - target language; if omitted, model detects
+ * @param {object} [options]
+ * @param {('gpt-4.1-mini'|'gpt-4o-mini')} [options.model] - model identifier
+ * @param {number} [options.defaultChunks]   - default number of chunks (e.g., 6)
+ * @param {number} [options.maxConcurrency]  - QPS limit (e.g., 8)
+ * @param {number} [options.defaultOverlap]  - overlap ratio (e.g., 0.05)
+ * @returns {Promise<{ textLanguage: string, blocks: Array }>} parsed blocks
  */
-export async function splitTranscriptWithGPT(text, transcriptLanguage) {
-    const model = 'gpt-4.1-mini';
-    const MAX_INPUT_TOKENS = 5000;
+export async function splitTranscriptWithGPT(
+    text,
+    transcriptLanguage,
+    { model = Models.GPT41_MINI, defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
+) {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Шаг 1: обрезка текста по токенам
-    let inputTokens = countTokens(text);
-    if (inputTokens > MAX_INPUT_TOKENS) {
-        console.warn(`[splitGPT] Input tokens ${inputTokens} exceed max ${MAX_INPUT_TOKENS}, trimming by tokens.`);
-        text = trimByTokens(text, MAX_INPUT_TOKENS);
-        inputTokens = countTokens(text);
-    }
+    // Compute chunk configuration
+    const { totalTokens, numberOfChunks, concurrency } = computeChunkConfig(text, { defaultChunks, maxConcurrency, defaultOverlap });
 
-    // Составляем системный промт согласно GPT-4.1 Prompting.md
-    const systemPrompt = `Respond only with valid JSON in the format {"textLanguage": string, "blocks": [ ... ]}. No backticks, no markdown, no extra text.
-Persist: Stay engaged until the task is fully complete.
-Tool-first: If you need information—call a tool; do not guess.
-Plan: First plan thoroughly, then execute functions.
+    // Split text into chunks
+    const chunks = splitByTokenCount(text, { defaultChunks, maxConcurrency, defaultOverlap });
+    console.log(`[semanticSplitter] Total tokens: ${totalTokens}, Chunks: ${numberOfChunks}, Concurrency: ${concurrency}`);
+    chunks.forEach((c, i) => console.log(`[semanticSplitter] Chunk ${i + 1}: ${c.blockTokens} tokens`));
 
-# 🎯 Role & Goal
-You are a Prompt Engineer that segments a video transcript into semantic blocks, detects original language, and optionally translates output.
+    // Parallel GPT calls with p-limit
+    const limit = pLimit(concurrency);
+    let requestCount = 0;
+    const results = await Promise.all(
+        chunks.map((chunk, idx) =>
+            limit(async () => {
+                requestCount++;
+                console.log(`[semanticSplitter] Sending request #${requestCount} for chunk ${idx + 1} (${chunk.blockTokens} tokens)`);
+                const prompt = model === Models.GPT41_MINI
+                    ? prompt41({ inputTokens: chunk.blockTokens, text: chunk.text, transcriptLanguage })
+                    : prompt4o({ inputTokens: chunk.blockTokens, text: chunk.text, transcriptLanguage });
+                const response = await openai.chat.completions.create({
+                    model,
+                    temperature: 0.4,
+                    messages: [{ role: "system", content: prompt }]
+                });
+                const raw = response.choices[0].message.content.trim();
+                const jsonMatch = raw.match(/\{[\s\S]*}/);
+                if (!jsonMatch) {
+                    console.error("[semanticSplitter] No JSON in chunk response", raw);
+                    return [];
+                }
+                try {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    console.log(`[semanticSplitter] Received blocks: ${parsed.blocks.length} for chunk ${idx + 1}`);
+                    return parsed.blocks || [];
+                } catch (e) {
+                    console.error("[semanticSplitter] JSON.parse failed on chunk response", e);
+                    return [];
+                }
+            })
+        )
+    );
 
-# 📃 Main Rules
-- Do not merge topics across blocks.
-- Do not hallucinate or add fields beyond the specification.
+    console.log(`[semanticSplitter] Total GPT requests sent: ${requestCount}`);
 
-## └─ Sub-rules
-- title: up to 7 words reflecting block essence; after detection, if transcriptLanguage is provided and different, translate title.
-- text: full original transcript sentences for each block (no summarization); after detection, if transcriptLanguage is provided and different, translate the text fully.
-- tokens: accurate token count for the final text.
+    // Merge blocks and add identifiers
+    const merged = [];
+    results.flat().forEach((blk, idx) => {
+        const id = `semantic-${idx + 1}`;
+        const blkTokens = countTokens(`${blk.title}\n${blk.text}`);
+        merged.push({ id, title: blk.title, text: blk.text, blockTokens: blkTokens });
+    });
 
-# 🎨 Language Handling
-1. Detect the transcript's original language and assign it to variable "textLanguage".
-2. Segment using the original text language.
-3. If transcriptLanguage is provided AND differs from textLanguage, translate each block's title and text into transcriptLanguage; otherwise leave in original.
-
-# 🧠 Algorithm
-1. Detect and set textLanguage.
-2. Identify semantic boundaries in the transcript.
-3. Extract full sentences for each block.
-4. Apply translation rules from Language Handling.
-5. Count tokens for each block's final text.
-
-# 📤 Output Format
-{
-  "textLanguage": string,
-  "blocks": [
-    { "title": string, "text": string, "tokens": number },
-    ...
-  ]
+    return {
+        textLanguage: transcriptLanguage || "",
+        blocks: merged
+    };
 }
 
-# 📚 Transcript Context
-Transcript text (${inputTokens} tokens):
-${text}`;
-
-    console.log(`[splitGPT] Calling model ${model} (system tokens: ${countTokens(systemPrompt)}, transcript tokens: ${inputTokens})`);
-
-    try {
-        const response = await openai.chat.completions.create({
-            model, temperature: 0.4, messages: [{role: 'system', content: systemPrompt}]
-        });
-
-        const raw = response.choices[0].message.content.trim();
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) {
-            console.error('[splitGPT] No JSON object found in response:', raw);
-            return {textLanguage: '', blocks: []};
-        }
-        return JSON.parse(match[0]);
-    } catch (error) {
-        console.error('[splitGPT] OpenAI request failed:', error);
-        return {textLanguage: '', blocks: []};
-    }
-}
+export { Models };

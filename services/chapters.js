@@ -11,8 +11,9 @@ export async function getChapters(url) {
 
     // 🛠 ВАЖНО: Теперь дополняем главы
     const chapters = completeChapters(rawChapters, duration);
-
+    console.log('splitByChapters - chapters: ', chapters);
     return chapters;
+
 }
 
 async function fetchDescriptionAndDuration(videoId) {

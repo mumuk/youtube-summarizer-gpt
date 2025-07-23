@@ -1,99 +1,43 @@
 // services/chapterSplitter.js
 
-import OpenAI from 'openai';
-import { countTokens, trimByTokens } from './tokenCounter.js';
-import dotenv from 'dotenv';
+import { countTokens } from '../utils/tokenCounter.js';
 
-
-dotenv.config();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 /**
- * Разбивает транскрипт по главам YouTube, определяет язык текста и при необходимости переводит результаты.
+ * Локальное разбиение транскрипта на главы без вызова модели.
  *
- * @param {Array<{title: string, start: number, end?: number}>} chapters - Массив глав из YouTube API.
- * @param {string} rawText - Полный очищенный текст транскрипта.
- * @param {string} [transcriptLanguage] - Желаемый язык вывода (для заголовков и текста). Если не указан или совпадает с исходным, выводят на языке транскрипта.
- * @returns {Promise<{textLanguage: string, chapters: Array<{title: string, text: string, tokens: number}>}>}
+ * @param {Array<{ start: number, text: string }>} transcriptItems — массив сегментов субтитров
+ * @param {Array<{ title: string, start: number, end: number }>} chapters — список глав из YouTube
+ * @param {number} overlapSec — перекрытие в секундах (по умолчанию 1)
+ * @returns {Array<{
+ *   id: string;
+ *   title: string;
+ *   text: string;
+ *   blockTokens: number;
+ * }>}
  */
-export async function splitTranscriptByChapters(chapters, rawText, transcriptLanguage) {
-    const model = 'gpt-4.1-mini';
-    const MAX_INPUT_TOKENS = 5000;
+export function splitTranscriptByChapters(transcriptItems, chapters, overlapSec = 1) {
+    return chapters.map((ch, idx) => {
+        // Расширяем границы окна
+        const startTime = Math.max(0, ch.start - overlapSec);
+        const endTime   = ch.end + overlapSec;
 
-    // Обрезка текста по токенам при необходимости
-    let inputTokens = countTokens(rawText);
-    if (inputTokens > MAX_INPUT_TOKENS) {
-        console.warn(
-            `[chapterSplitter] Input tokens ${inputTokens} exceed max ${MAX_INPUT_TOKENS}, trimming by tokens.`
-        );
-        rawText = trimByTokens(rawText, MAX_INPUT_TOKENS);
-        inputTokens = countTokens(rawText);
-    }
+        // Собираем все текстовые сегменты в интервале [startTime, endTime)
+        const texts = transcriptItems
+            .filter(item => item.start >= startTime && item.start < endTime)
+            .map(item => item.text.trim());
 
-    // Системное сообщение согласно GPT-4.1 Prompting.md
-    const systemPrompt = `Ensure output is strictly valid JSON without trailing commas. Respond only with a JSON object in the format {"textLanguage": string, "chapters": [...]}. No backticks, markdown, or extra text.
-Persist: Stay engaged until the task is fully complete.
-Tool-first: If you need information—call a tool; do not guess.
-Plan: First plan thoroughly, then execute functions.
+        const combinedText = texts.join(' ');
+        // Формируем уникальный идентификатор
+        const id = `chapter-${idx + 1}`;
 
-# 🎯 Role & Goal
-You are a Prompt Engineer that splits a video transcript into semantic blocks based on provided YouTube chapters, detects the original language, and optionally translates output.
+        // Считаем токены для заголовка + текста
+        const blockTokens = countTokens(ch.title) + countTokens(combinedText);
 
-# 📃 Main Rules
-- Do not merge content between chapters.
-- Do not hallucinate or add fields beyond the specification.
-
-## └─ Sub-rules
-- title: use chapter.title; up to 7 words; if transcriptLanguage differs, translate.
-- text: full original transcript sentences; if transcriptLanguage differs, translate.
-- tokens: accurate token count for final text.
-
-# 🎨 Language Handling
-1. Detect the transcript's original language and assign to "textLanguage".
-2. Segment using that original language.
-3. If transcriptLanguage provided AND differs, translate title and text to that language.
-
-# 🧠 Algorithm
-1. Detect and set textLanguage.
-2. Iterate chapters in order; extract sentences by timestamps.
-3. Build blocks with title, text, tokens.
-4. Apply translation rules.
-
-# 📤 Output Format
-{  "textLanguage": string,  "blocks": [    { "title": string, "text": string, "tokens": number },    ...  ]}
-
-# 📚 External Context
-Chapters: ${JSON.stringify(chapters)}
-
-Transcript text (${inputTokens} tokens):
-${rawText}`;
-
-    console.log(
-        `[chapterSplitter] Calling model ${model} (system tokens: ${countTokens(systemPrompt)}, transcript tokens: ${inputTokens})`
-    );
-
-    try {
-        const response = await openai.chat.completions.create({
-            model,
-            temperature: 0.4,
-            messages: [{ role: 'system', content: systemPrompt }]
-        });
-
-        const raw = response.choices[0].message.content.trim();
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) {
-            console.error('[chapterSplitter] No JSON found in response:', raw);
-            return { textLanguage: '', chapters: [] };
-        }
-
-        // Убираем возможные trailing commas
-        let jsonString = match[0]
-            .replace(/,\s*}/g, '}')
-            .replace(/,\s*]/g, ']');
-
-        const parsed = JSON.parse(jsonString);
-        return parsed;
-    } catch (error) {
-        console.error('[chapterSplitter] OpenAI request failed:', error);
-        return { textLanguage: '', chapters: [] };
-    }
+        return {
+            id,
+            title: ch.title,
+            text: combinedText,
+            blockTokens
+        };
+    });
 }

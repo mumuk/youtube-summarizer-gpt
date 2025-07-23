@@ -7,7 +7,7 @@
  * @property {number} [duration] - Длительность (опционально)
  */
 
-import {countTokens} from "../services/tokenCounter.js";
+import {countTokens} from "./tokenCounter.js";
 
 /**
  * Подготавливает транскрипт: очищает текст, объединяет фразы и считает токены.
@@ -19,6 +19,7 @@ import {countTokens} from "../services/tokenCounter.js";
  */
 export function prepareTranscript(transcript, { removeSpeakers = false } = {}) {
     // Шаг 1: очищаем каждую запись
+
     const cleaned = transcript
         .map(entry => ({
             ...entry,

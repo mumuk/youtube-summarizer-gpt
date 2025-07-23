@@ -1,6 +1,6 @@
 import express from 'express';
 import OpenAI from 'openai';
-import { countTokens } from '../../services/tokenCounter.js';
+import { countTokens } from '../../utils/tokenCounter.js';
 import { saveSummary } from '../../utils/save-summary.js';
 
 const router = express.Router();
@@ -14,6 +14,7 @@ const MIN_TEXT_TOKEN_LIMIT = 300;
  * @returns {Promise<string>} - Сгенерированное резюме или оригинальный текст.
  */
 async function summarizeBlock(text, language) {
+    console.log('summary route')
     const systemPrompt = `Respond only with valid JSON {"summary": string}. No markdown, no backticks, no extra text.
 Persist: Stay engaged until the task is fully complete.
 Tool-first: If you need information—call a tool; do not guess.
