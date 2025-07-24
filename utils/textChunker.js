@@ -1,80 +1,67 @@
 // utils/textChunker.js
 // ------------------------------------------------------------
 // Provides functions to compute chunk configuration and split text into chunks
-// based on QPS/min-size rules.
-// Contains two functions: computeChunkConfig and splitByTokenCount.
+// based on QPS/min-size rules with true token-based slicing and detailed logging.
 // ------------------------------------------------------------
 
-import { countTokens, trimByTokens } from "./tokenCounter.js";
+import { countTokens, encode, decode } from "./tokenCounter.js";
 
 /**
- * Compute how many chunks to split the text into, overlap ratio, concurrency,
- * and total token count.
- *
- * @param {string} text
- * @param {object} options
- * @param {number} options.defaultChunks   - default number of chunks (e.g., 6)
- * @param {number} options.maxConcurrency - maximum parallel calls / QPS limit (e.g., 8)
- * @param {number} options.defaultOverlap - overlap ratio (e.g., 0.05 for 5%)
- * @returns {{ totalTokens: number, numberOfChunks: number, overlapTokens: number, concurrency: number }}
+ * Compute number of chunks, overlap, and total tokens.
  */
-export function computeChunkConfig(text, { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}) {
+export function computeChunkConfig(
+    text,
+    { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
+) {
     const totalTokens = countTokens(text);
     const minChunkSize = 1000;
-
-    // Initial number of chunks based on minimum chunk size
     let numberOfChunks = Math.ceil(totalTokens / minChunkSize);
     numberOfChunks = Math.max(1, Math.min(numberOfChunks, maxConcurrency));
-
-    // Enforce defaultChunks for larger texts
     if (totalTokens > defaultChunks * minChunkSize && numberOfChunks < defaultChunks) {
         numberOfChunks = defaultChunks;
     }
-
-    // Tail merging logic: if last chunk is too small, merge it
     const idealSize = totalTokens / numberOfChunks;
     const tailSize = totalTokens - idealSize * (numberOfChunks - 1);
     if (tailSize < 1.5 * idealSize && numberOfChunks > 1) {
         numberOfChunks -= 1;
     }
     numberOfChunks = Math.max(1, Math.min(numberOfChunks, maxConcurrency));
-
-    // Compute overlap in tokens
     const overlapTokens = Math.floor((totalTokens / numberOfChunks) * defaultOverlap);
-
     return { totalTokens, numberOfChunks, overlapTokens, concurrency: numberOfChunks };
 }
 
 /**
- * Splits text into semantic chunks using computeChunkConfig.
- *
- * @param {string} text
- * @param {object} options
- * @param {number} options.defaultChunks   - default number of chunks (e.g., 6)
- * @param {number} options.maxConcurrency - QPS limit (e.g., 8)
- * @param {number} options.defaultOverlap - overlap ratio (e.g., 0.05)
- * @returns {{ text: string, blockTokens: number }[]} Array of chunk objects
+ * Splits text into semantic chunks with logging at each step.
  */
 export function splitByTokenCount(text, options = {}) {
     const { totalTokens, numberOfChunks, overlapTokens } = computeChunkConfig(text, options);
-    const chunks = [];
-    let startIndex = 0;
+    console.log(`
+[textChunker] CONFIG → totalTokens=${totalTokens}, numberOfChunks=${numberOfChunks}, overlapTokens=${overlapTokens}`);
 
-    // Calculate base size including distribution of overlap
+    console.log(`[textChunker] Input text snippet: "${text.slice(0,100).replace(/\n/g,' ')}..."`);
+    const tokens = encode(text);
+    console.log(`[textChunker] Tokens sample: first10=${tokens.slice(0,10)}, last10=${tokens.slice(-10)}`);
+
+    const chunks = [];
+    let startToken = 0;
     const baseSize = Math.floor((totalTokens + overlapTokens * (numberOfChunks - 1)) / numberOfChunks);
 
     for (let i = 0; i < numberOfChunks; i++) {
         const isLast = i === numberOfChunks - 1;
-        const size = isLast ? totalTokens - startIndex : baseSize;
+        const sizeTokens = isLast ? totalTokens - startToken : baseSize;
+        const sliceCount = sizeTokens + (i > 0 ? overlapTokens : 0);
+        console.log(`[textChunker] chunk ${i+1}: startToken=${startToken}, sizeTokens=${sizeTokens}, overlapTokens=${overlapTokens}`);
 
-        // For all but first chunk, include overlap
-        const sliceSize = size + (i > 0 ? overlapTokens : 0);
-        const chunkText = trimByTokens(text.slice(startIndex), sliceSize);
-        const blockTokens = countTokens(chunkText);
-        chunks.push({ text: chunkText, blockTokens });
+        const chunkTokens = tokens.slice(startToken, startToken + sliceCount);
+        console.log(`[textChunker] raw chunkTokens: first5=${chunkTokens.slice(0,5)}, last5=${chunkTokens.slice(-5)}`);
 
-        startIndex += size;
+        const chunkTextRaw = decode(chunkTokens);
+        const chunkText = typeof chunkTextRaw === 'string' ? chunkTextRaw : String(chunkTextRaw);
+        console.log(`[textChunker] decoded chunk text snippet: "${chunkText.slice(0,100).replace(/\n/g,' ')}..."`);
+        console.log(`[textChunker] → blockTokens=${chunkTokens.length}`);
+
+        chunks.push({ text: chunkText, blockTokens: chunkTokens.length });
+        startToken += sizeTokens;
     }
-
     return chunks;
 }

@@ -1,37 +1,56 @@
+// utils/tokenCounter.js
+// ------------------------------------------------------------
+// Provides token counting, encoding, and decoding using tiktoken
+// ------------------------------------------------------------
+
 import { encoding_for_model } from 'tiktoken';
 
-// Модель используемая для подсчёта токенов
-const model = 'gpt-3.5-turbo'; // можно заменить на 'gpt-4'
+// Model used for token encoding/decoding
+const model = 'gpt-3.5-turbo'; // can be changed to 'gpt-4'
 const encoder = encoding_for_model(model);
-
+const textDecoder = new TextDecoder('utf-8');
 /**
- * Подсчитывает количество токенов в тексте.
- *
- * @param {string} text - Текст для анализа.
- * @returns {number} - Число токенов.
+ * Count number of tokens in a given text
+ * @param {string} text - Text to analyze
+ * @returns {number} - Token count
  */
-export function countTokens(text) {
+export function countTokens(input) {
+    const text = Array.isArray(input)
+        ? encoder.decode(input)
+        : String(input);
     return encoder.encode(text).length;
 }
 
 /**
- * Обрезает текст так, чтобы он не превышал заданное число токенов.
- *
- * @param {string} text - Входной текст для обрезки.
- * @param {number} maxTokens - Максимально допустимое число токенов.
- * @returns {string} - Обрезанный текст, не превышающий лимит.
+ * Trim text to ensure it does not exceed the max token limit
+ * @param {string} text - Input text
+ * @param {number} maxTokens - Maximum allowed tokens
+ * @returns {string} - Trimmed text
  */
 export function trimByTokens(text, maxTokens) {
-    const words = text.split(/\s+/);
-    let trimmed = '';
+    const tokens = encoder.encode(text);
+    if (tokens.length <= maxTokens) return text;
+    const trimmedTokens = tokens.slice(0, maxTokens);
+    return encoder.decode(trimmedTokens);
+}
 
-    for (const word of words) {
-        const candidate = trimmed ? `${trimmed} ${word}` : word;
-        if (countTokens(candidate) > maxTokens) {
-            break;
-        }
-        trimmed = candidate;
-    }
+/**
+ * Encode text into an array of token IDs
+ * @param {string} text - Text to encode
+ * @returns {number[]} - Array of token IDs
+ */
+export function encode(text) {
+    return encoder.encode(text);
+}
 
-    return trimmed;
+/**
+ * Decode an array of token IDs back into string text
+ * @param {number[]} tokens - Array of token IDs
+ * @returns {string} - Decoded text
+ */
+export function decode(tokens) {
+    // tiktoken.decode возвращает Uint8Array → нуждаем в TextDecoder
+    const bytes = encoder.decode(tokens);     // Uint8Array
+    const text  = textDecoder.decode(bytes);  // string
+    return text;
 }

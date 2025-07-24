@@ -5,7 +5,7 @@ import {ensureOAuthClient} from '../../services/oauthClient.js';
 import {getTranscriptFromUrl} from '../../services/transcriptService.js';
 import {getChapters} from '../../services/chapters.js';
 import {prepareTranscript} from '../../utils/transcriptPreparer.js';
-import {splitTranscriptWithGPT} from '../../services/semanticSplitter.js';
+import {splitTranscriptWithGPT, splitTranscriptWithoutGPT} from '../../services/semanticSplitter.js';
 import {splitTranscriptByChapters} from '../../services/chapterSplitter.js';
 
 const router = express.Router();
@@ -45,7 +45,8 @@ router.post('/', async (req, res) => {
         // 1) Генерируем семантические блоки
          console.time('splitSemantic');
          const semantic = await splitTranscriptWithGPT(rawText, transcriptLanguage);
-         console.timeEnd('splitSemantic');
+        //const semantic =  splitTranscriptWithoutGPT(rawText, transcriptLanguage)
+        console.timeEnd('splitSemantic');
 
 // 2) Локально разбиваем по главам только если они есть
         console.time('splitByChapters');
