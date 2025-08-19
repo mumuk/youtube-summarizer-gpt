@@ -1,15 +1,12 @@
 // prompts/semanticPrompts.js
 /* eslint-disable max-len */
 
-export const Models = {
-    GPT41_MINI: 'gpt-4.1-mini',
-    GPT4O_MINI: 'gpt-4o-mini'
-};
+import { Models, ActiveModel } from "../config/models.js";
 
 /* ──────────────────────────────────────────────
    GPT-4.1-mini
 ────────────────────────────────────────────── */
-export function prompt41({ inputTokens, text, transcriptLanguage }) {
+function prompt41({ inputTokens, text, transcriptLanguage }) {
     const langRule = transcriptLanguage
         ? `Write titles & text **in ${transcriptLanguage}**.`
         : 'Detect the original language and set it as **textLanguage**.';
@@ -65,7 +62,7 @@ Think step-by-step and outline your plan before answering.
 /* ──────────────────────────────────────────────
    GPT-4o-mini
 ────────────────────────────────────────────── */
-export function prompt4o({ inputTokens, text, transcriptLanguage }) {
+function prompt4o({ inputTokens, text, transcriptLanguage }) {
     const langLine = transcriptLanguage
         ? `Use **${transcriptLanguage}** for titles & text.`
         : 'Detect language and set **textLanguage**.';
@@ -94,4 +91,17 @@ Format:
 Transcript (${inputTokens} tokens):
 ${text}
 `.trim();
+}
+
+/* ──────────────────────────────────────────────
+   Unified Getter
+────────────────────────────────────────────── */
+export function getSemanticPrompt(params) {
+    if (ActiveModel === Models.GPT41_MINI) {
+        return prompt41(params);
+    }
+    if (ActiveModel === Models.GPT4O_MINI) {
+        return prompt4o(params);
+    }
+    throw new Error(`Unsupported model: ${ActiveModel}`);
 }

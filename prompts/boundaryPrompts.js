@@ -1,15 +1,14 @@
 // prompts/boundaryPrompts.js
 // ------------------------------------------------------------
 // Boundary prompts for cleaning overlaps between chunk borders.
-// Includes single-pair and batch variants for GPT-4.1-mini and GPT-4o-mini.
+// Includes single-pair and batch variants.
 // ------------------------------------------------------------
-import { Models } from "./semanticPrompts.js";
+import { Models, ActiveModel } from "../config/models.js";
 
-/**
- * GPT-4.1-mini batch boundary prompt
- * Based on Playbook rules (GPT-4.1 Prompting.md).
- */
-export function batchBoundaryPrompt41(pairs) {
+/* ──────────────────────────────────────────────
+   GPT-4.1-mini batch boundary prompt
+────────────────────────────────────────────── */
+function batchBoundaryPrompt41(pairs) {
     const context = pairs
         .map((p, i) => `Pair ${i+1}:\nSegment A: ${p.prevText}\nSegment B: ${p.currText}`)
         .join("\n\n");
@@ -48,11 +47,10 @@ Return valid JSON array only. Example:
 ${context}`;
 }
 
-/**
- * GPT-4o-mini batch boundary prompt
- * Compact variant with same semantics.
- */
-export function batchBoundaryPrompt4o(pairs) {
+/* ──────────────────────────────────────────────
+   GPT-4o-mini batch boundary prompt
+────────────────────────────────────────────── */
+function batchBoundaryPrompt4o(pairs) {
     const context = pairs
         .map((p, i) => `Pair ${i+1}:\nA: ${p.prevText}\nB: ${p.currText}`)
         .join("\n\n");
@@ -76,11 +74,10 @@ Context:
 ${context}`;
 }
 
-/**
- * GPT-4.1-mini boundary prompt
- * Use exact playbook from GPT-4.1 Prompting.md for handling overlaps
- */
-export function boundaryPrompt41({ prevText, currText }) {
+/* ──────────────────────────────────────────────
+   GPT-4.1-mini single boundary prompt
+────────────────────────────────────────────── */
+function boundaryPrompt41({ prevText, currText }) {
     return `Stay engaged until the task is fully complete.
 If you need information—call a tool; do **not** guess.
 First plan thoroughly, then execute functions.
@@ -113,11 +110,10 @@ Segment A: ${prevText}
 Segment B: ${currText}`;
 }
 
-/**
- * GPT-4o-mini boundary prompt
- * Condensed style for GPT-4o-mini based on semanticPrompts.js guidelines.
- */
-export function boundaryPrompt4o({ prevText, currText }) {
+/* ──────────────────────────────────────────────
+   GPT-4o-mini single boundary prompt
+────────────────────────────────────────────── */
+function boundaryPrompt4o({ prevText, currText }) {
     return `Persist: Stay engaged until the task is fully complete.
 Tool-first: If you need information—call a tool; do **not** guess.
 Plan: First plan thoroughly, then execute functions.
@@ -131,7 +127,17 @@ A: ${prevText}
 B: ${currText}`;
 }
 
-// Usage example in semanticSplitter:
-// const promptObj = model === Models.GPT41_MINI
-//   ? boundaryPrompt41({ prevText: a, currText: b })
-//   : boundaryPrompt4o({ prevText: a, currText: b });
+/* ──────────────────────────────────────────────
+   Unified Getters
+────────────────────────────────────────────── */
+export function getBoundaryPrompt(pair) {
+    if (ActiveModel === Models.GPT41_MINI) return boundaryPrompt41(pair);
+    if (ActiveModel === Models.GPT4O_MINI) return boundaryPrompt4o(pair);
+    throw new Error(`Unsupported model: ${ActiveModel}`);
+}
+
+export function getBatchBoundaryPrompt(pairs) {
+    if (ActiveModel === Models.GPT41_MINI) return batchBoundaryPrompt41(pairs);
+    if (ActiveModel === Models.GPT4O_MINI) return batchBoundaryPrompt4o(pairs);
+    throw new Error(`Unsupported model: ${ActiveModel}`);
+}

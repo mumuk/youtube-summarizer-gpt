@@ -8,10 +8,12 @@
 import OpenAI from "openai";
 import pLimit from "p-limit";
 import { splitByTokenCount, computeChunkConfig } from "../utils/textChunker.js";
-import { prompt41, prompt4o, Models } from "../prompts/semanticPrompts.js";
 import { countTokens } from "../utils/tokenCounter.js";
-import { extractBoundaryPairsWithText, processBoundaryPairs, applyBoundaryEdits } from "../utils/boundaryProcessing.js";
+import { extractBoundaryPairsWithText, applyBoundaryEdits } from "../utils/boundaryUtils.js";
+import { processBoundaryPairs } from "./boundaryService.js";
 import { safeJsonParse } from "../utils/safeJsonParse.js";
+import { getSemanticPrompt } from "../prompts/semanticPrompts.js";
+import { ActiveModel } from "../config/models.js";
 
 /**
  * Deduplicate parsed blocks, preserving order
@@ -34,7 +36,7 @@ function mergeBlocks(blocksArrays) {
 export async function splitTranscriptWithGPT(
     text,
     transcriptLanguage,
-    { model = Models.GPT41_MINI, defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
+    { model = ActiveModel, defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
 ) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -55,19 +57,19 @@ export async function splitTranscriptWithGPT(
                 sentRequests++;
                 console.log(`[semanticSplitter] Sending request #${sentRequests} for chunk ${idx+1} with ${chunk.blockTokens} tokens`);
 
-                const promptObj =
-                    model === Models.GPT41_MINI
-                        ? prompt41({ inputTokens: chunk.blockTokens, text: chunk.text, transcriptLanguage })
-                        : prompt4o({ inputTokens: chunk.blockTokens, text: chunk.text, transcriptLanguage });
-
+                const prompt = getSemanticPrompt({
+                    inputTokens: chunk.blockTokens,
+                    text: chunk.text,
+                    transcriptLanguage
+                });
                 const res = await openai.chat.completions.create({
                     model,
                     temperature: 0.4,
-                    messages: [{ role: "system", content: promptObj }]
+                    messages: [{ role: "system", content: prompt }]
                 });
 
                 const raw = res.choices[0].message.content;
-                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                const jsonMatch = raw.match(/\{[\s\S]*}/);
 
                 if (!jsonMatch) {
                     console.error(`[semanticSplitter] No JSON found in chunk ${idx+1} response`);
@@ -108,4 +110,4 @@ export async function splitTranscriptWithGPT(
     return { textLanguage: transcriptLanguage || "", blocks: cleanedBlocks };
 }
 
-export { Models };
+
