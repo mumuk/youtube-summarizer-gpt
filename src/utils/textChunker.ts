@@ -4,7 +4,7 @@
 // based on QPS/min-size rules with true token-based slicing and detailed logging.
 // ------------------------------------------------------------
 
-import { countTokens, encode, decode } from "./tokenCounter.js";
+import { countTokens, encode, decode } from "./tokenCounter.ts";
 
 /**
  * Compute number of chunks, overlap, and total tokens.

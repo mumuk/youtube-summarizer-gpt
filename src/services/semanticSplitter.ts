@@ -7,13 +7,13 @@
 
 import OpenAI from "openai";
 import pLimit from "p-limit";
-import { splitByTokenCount, computeChunkConfig } from "../utils/textChunker.js";
-import { countTokens } from "../utils/tokenCounter.js";
-import { extractBoundaryPairsWithText, applyBoundaryEdits } from "../utils/boundaryUtils.js";
-import { processBoundaryPairs } from "./boundaryService.js";
-import { safeJsonParse } from "../utils/safeJsonParse.js";
-import { getSemanticPrompt } from "../prompts/semanticPrompts.js";
-import { ActiveModel } from "../config/models.js";
+import { splitByTokenCount, computeChunkConfig } from "../utils/textChunker.ts";
+import { countTokens } from "../utils/tokenCounter.ts";
+import { extractBoundaryPairsWithText, applyBoundaryEdits } from "../utils/boundaryUtils.ts";
+import { processBoundaryPairs } from "./boundaryService.ts";
+import { safeJsonParse } from "../utils/safeJsonParse.ts";
+import { getSemanticPrompt } from "../prompts/semanticPrompts.ts";
+import { ActiveModel } from "../config/models.ts";
 
 /**
  * Deduplicate parsed blocks, preserving order

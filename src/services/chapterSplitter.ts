@@ -1,6 +1,6 @@
 // services/chapterSplitter.js
 
-import { countTokens } from '../utils/tokenCounter.js';
+import { countTokens } from '../utils/tokenCounter.ts';
 
 /**
  * Локальное разбиение транскрипта на главы без вызова модели.
