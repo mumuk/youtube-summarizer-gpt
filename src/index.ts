@@ -1,4 +1,4 @@
-
+//src/index.ts
 import express, { Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -20,6 +20,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 app.get('/api/health', (_req: Request, res: Response) => {
+    console.log('OK!!!!')
     res.send('OK');
 });
 

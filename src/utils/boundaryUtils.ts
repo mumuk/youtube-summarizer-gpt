@@ -9,7 +9,7 @@
  * @param {number[]} blocksCountPerChunk
  * @returns {Array<{ prevId:string, currId:string, prevText:string, currText:string }>}
  */
-export function extractBoundaryPairsWithText(finalBlocks, blocksCountPerChunk) {
+export function extractBoundaryPairsWithText(finalBlocks: any[], blocksCountPerChunk: string | any[]) {
     const pairs = [];
     let offset = 0;
 
