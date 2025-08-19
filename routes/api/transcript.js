@@ -5,7 +5,7 @@ import {ensureOAuthClient} from '../../services/oauthClient.js';
 import {getTranscriptFromUrl} from '../../services/transcriptService.js';
 import {getChapters} from '../../services/chapters.js';
 import {prepareTranscript} from '../../utils/transcriptPreparer.js';
-import {splitTranscriptWithGPT, splitTranscriptWithoutGPT} from '../../services/semanticSplitter.js';
+import {splitTranscriptWithGPT} from '../../services/semanticSplitter.js';
 import {splitTranscriptByChapters} from '../../services/chapterSplitter.js';
 
 const router = express.Router();
