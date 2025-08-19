@@ -6,12 +6,23 @@
 
 import { countTokens, encode, decode } from "./tokenCounter.ts";
 
+interface ChunkConfigOptions {
+    defaultChunks?: number;
+    maxConcurrency?: number;
+    defaultOverlap?: number;
+}
+
+interface Chunk {
+    text: string;
+    blockTokens: number;
+}
+
 /**
  * Compute number of chunks, overlap, and total tokens.
  */
 export function computeChunkConfig(
-    text,
-    { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
+    text: string,
+    { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 }: ChunkConfigOptions = {},
 ) {
     const totalTokens = countTokens(text);
     const minChunkSize = 1000;
@@ -33,7 +44,7 @@ export function computeChunkConfig(
 /**
  * Splits text into semantic chunks with logging at each step.
  */
-export function splitByTokenCount(text, options = {}) {
+export function splitByTokenCount(text: string, options: ChunkConfigOptions = {}): Chunk[] {
     const { totalTokens, numberOfChunks, overlapTokens } = computeChunkConfig(text, options);
     console.log(`
 [textChunker] CONFIG → totalTokens=${totalTokens}, numberOfChunks=${numberOfChunks}, overlapTokens=${overlapTokens}`);
@@ -42,7 +53,7 @@ export function splitByTokenCount(text, options = {}) {
     const tokens = encode(text);
     console.log(`[textChunker] Tokens sample: first10=${tokens.slice(0,10)}, last10=${tokens.slice(-10)}`);
 
-    const chunks = [];
+    const chunks: Chunk[] = [];
     let startToken = 0;
     const baseSize = Math.floor((totalTokens + overlapTokens * (numberOfChunks - 1)) / numberOfChunks);
 

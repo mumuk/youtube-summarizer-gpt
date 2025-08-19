@@ -5,9 +5,11 @@
 // ------------------------------------------------------------
 
 import pLimit from "p-limit";
+import OpenAI from "openai";
 import { boundaryPrompt41, boundaryPrompt4o } from "../prompts/boundaryPrompts.ts";
 import { Models } from "../prompts/semanticPrompts.ts";
 import { safeJsonParse } from "./safeJsonParse.ts";
+import { Block, BoundaryPair, BoundaryEdit } from "./boundaryTypes.ts";
 
 /**
  * Extract boundary pairs (prev/next blocks) across chunk borders.
@@ -16,8 +18,11 @@ import { safeJsonParse } from "./safeJsonParse.ts";
  * @param {number[]} blocksCountPerChunk - number of blocks per chunk
  * @returns {Array<{ prevId:string, currId:string, prevText:string, currText:string }>}
  */
-export function extractBoundaryPairsWithText(finalBlocks, blocksCountPerChunk) {
-    const pairs = [];
+export function extractBoundaryPairsWithText(
+    finalBlocks: Block[],
+    blocksCountPerChunk: number[]
+): BoundaryPair[] {
+    const pairs: BoundaryPair[] = [];
     let offset = 0;
 
     for (let i = 0; i < blocksCountPerChunk.length - 1; i++) {
@@ -40,12 +45,17 @@ export function extractBoundaryPairsWithText(finalBlocks, blocksCountPerChunk) {
     return pairs;
 }
 
-export async function processBoundaryPairs(pairs, openai, model, concurrency = 6) {
+export async function processBoundaryPairs(
+    pairs: BoundaryPair[],
+    openai: OpenAI,
+    model: Models,
+    concurrency = 6
+): Promise<BoundaryEdit[]> {
     if (!pairs.length) return [];
 
     const limit = pLimit(concurrency);
 
-    const results = await Promise.all(
+    const results: BoundaryEdit[] = await Promise.all(
         pairs.map((pair, idx) =>
             limit(async () => {
                 const prompt =
@@ -67,8 +77,8 @@ export async function processBoundaryPairs(pairs, openai, model, concurrency = 6
                         messages: [{ role: "system", content: prompt }]
                     });
 
-                    const raw = res.choices[0].message.content;
-                    const json = safeJsonParse(raw, {});
+                    const raw = res.choices[0].message.content ?? "";
+                    const json = safeJsonParse<Partial<BoundaryEdit>>(raw, {});
 
                     console.log(`[boundaryProcessing] AFTER:`);
                     console.log(`merged: ${json?.merged || "—"}`);
@@ -78,9 +88,9 @@ export async function processBoundaryPairs(pairs, openai, model, concurrency = 6
                     return {
                         prevId: pair.prevId,
                         currId: pair.currId,
-                        merged: json?.merged || null,
-                        firstClean: json?.firstClean || null,
-                        secondClean: json?.secondClean || null,
+                        merged: json?.merged ?? null,
+                        firstClean: json?.firstClean ?? null,
+                        secondClean: json?.secondClean ?? null,
                     };
                 } catch (err) {
                     console.error(`[boundaryProcessing] Error on pair ${idx + 1}`, err);
@@ -107,11 +117,11 @@ export async function processBoundaryPairs(pairs, openai, model, concurrency = 6
  * @param {Array<object>} edits - result from processBoundaryPairs
  * @returns {Array<object>} updated finalBlocks
  */
-export function applyBoundaryEdits(blocks, edits) {
+export function applyBoundaryEdits(blocks: Block[], edits: BoundaryEdit[]): Block[] {
     if (!edits || edits.length === 0) return blocks;
 
     // Быстрый доступ id → index
-    const idToIndex = new Map(blocks.map((b, i) => [b.id, i]));
+    const idToIndex = new Map<string, number>(blocks.map((b, i) => [b.id, i]));
 
     // Применяем с конца к началу, чтобы индексы не смещались
     [...edits].reverse().forEach(edit => {

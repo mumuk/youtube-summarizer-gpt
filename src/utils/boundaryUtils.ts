@@ -3,14 +3,16 @@
 // Pure utility functions for detecting and applying boundary edits
 // ------------------------------------------------------------
 
+import { Block, BoundaryPair, BoundaryEdit } from "./boundaryTypes.ts";
+
 /**
  * Extract boundary pairs (prev/next blocks) across chunk borders.
- * @param {Array<{id:string,text:string}>} finalBlocks
- * @param {number[]} blocksCountPerChunk
- * @returns {Array<{ prevId:string, currId:string, prevText:string, currText:string }>}
  */
-export function extractBoundaryPairsWithText(finalBlocks: any[], blocksCountPerChunk: string | any[]) {
-    const pairs = [];
+export function extractBoundaryPairsWithText(
+    finalBlocks: Block[],
+    blocksCountPerChunk: number[]
+): BoundaryPair[] {
+    const pairs: BoundaryPair[] = [];
     let offset = 0;
 
     for (let i = 0; i < blocksCountPerChunk.length - 1; i++) {
@@ -35,14 +37,11 @@ export function extractBoundaryPairsWithText(finalBlocks: any[], blocksCountPerC
 
 /**
  * Apply processed edits to finalBlocks array.
- * @param {Array<object>} blocks
- * @param {Array<object>} edits
- * @returns {Array<object>}
  */
-export function applyBoundaryEdits(blocks, edits) {
+export function applyBoundaryEdits(blocks: Block[], edits: BoundaryEdit[]): Block[] {
     if (!edits || edits.length === 0) return blocks;
 
-    const idToIndex = new Map(blocks.map((b, i) => [b.id, i]));
+    const idToIndex = new Map<string, number>(blocks.map((b, i) => [b.id, i]));
 
     [...edits].reverse().forEach(edit => {
         const iPrev = idToIndex.get(edit.prevId);

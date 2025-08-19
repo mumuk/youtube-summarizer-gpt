@@ -1,13 +1,12 @@
 // utils/transcriptPreparer.js
 
-/**
- * @typedef {Object} TranscriptItem
- * @property {string} text - Текст фразы
- * @property {number} start - Время начала (в секундах)
- * @property {number} [duration] - Длительность (опционально)
- */
+import { countTokens } from "./tokenCounter.ts";
 
-import {countTokens} from "./tokenCounter.ts";
+export interface TranscriptItem {
+    text: string;
+    start: number;
+    duration?: number;
+}
 
 /**
  * Подготавливает транскрипт: очищает текст, объединяет фразы и считает токены.
@@ -17,7 +16,10 @@ import {countTokens} from "./tokenCounter.ts";
  * @param {boolean} [options.removeSpeakers=false] - Удалять ли "Speaker X:" из текста
  * @returns {{ transcript: string, totalTokens: number }} - Объединённый текст и число токенов
  */
-export function prepareTranscript(transcript, { removeSpeakers = false } = {}) {
+export function prepareTranscript(
+    transcript: TranscriptItem[],
+    { removeSpeakers = false }: { removeSpeakers?: boolean } = {}
+): { transcript: string; totalTokens: number } {
     // Шаг 1: очищаем каждую запись
 
     const cleaned = transcript
@@ -50,7 +52,7 @@ export function prepareTranscript(transcript, { removeSpeakers = false } = {}) {
  * @param {boolean} removeSpeakers - Удалять ли Speaker X:
  * @returns {string} - Очищенный текст
  */
-function cleanText(text, removeSpeakers) {
+function cleanText(text: string, removeSpeakers: boolean): string {
     let cleaned = text
         .replace(/\[.*?\]/g, '')                  // удаляем [Music], [Applause] и т.п.
         .replace(/[♪♫]+/g, '')                    // удаляем ♪ и ♫

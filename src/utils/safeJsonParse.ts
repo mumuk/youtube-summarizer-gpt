@@ -12,7 +12,14 @@
  * @param {boolean} [options.expectArray=false] - if true, extract array `[...]` instead of object `{...}`
  * @returns {any|null} parsed JSON object or null if parsing fails
  */
-export function safeJsonParse(raw, { expectArray = false } = {}) {
+interface SafeParseOptions {
+    expectArray?: boolean;
+}
+
+export function safeJsonParse<T = unknown>(
+    raw: string,
+    { expectArray = false }: SafeParseOptions = {}
+): T | null {
     if (!raw || typeof raw !== "string") return null;
 
     let cleaned = raw.trim();
@@ -29,7 +36,7 @@ export function safeJsonParse(raw, { expectArray = false } = {}) {
     }
 
     try {
-        return JSON.parse(match[0]);
+        return JSON.parse(match[0]) as T;
     } catch (e) {
         console.error("[safeJsonParse] JSON.parse failed:", e, "raw:", cleaned.slice(0, 200));
         return null;
