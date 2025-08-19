@@ -1,7 +1,7 @@
 // prompts/semanticPrompts.js
 /* eslint-disable max-len */
 
-import { Models, ActiveModel } from "../config/models.js";
+import { Models, ActiveModel } from "../config/models.ts";
 
 /* ──────────────────────────────────────────────
    GPT-4.1-mini

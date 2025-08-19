@@ -1,5 +1,4 @@
-// новый файл: routes/api/auth.js
-import express from 'express';
+import express, { Request, Response } from 'express';
 import {google} from 'googleapis';
 import dotenv from 'dotenv';
 
@@ -13,7 +12,7 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 // 1) Старт авторизации
-router.get('/', (req, res) => {
+router.get('/', (_req: Request, res: Response) => {
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: ['https://www.googleapis.com/auth/youtube.force-ssl'],
@@ -23,8 +22,8 @@ router.get('/', (req, res) => {
 });
 
 // 2) Callback
-router.get('/callback', async (req, res) => {
-    const code = req.query.code;
+router.get('/callback', async (req: Request, res: Response) => {
+    const code = req.query.code as string;
     const {tokens} = await oauth2Client.getToken(code);
     // Выводим в консоль для копирования в .env
     console.log('REFRESH_TOKEN=', tokens.refresh_token);

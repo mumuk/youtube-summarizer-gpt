@@ -3,8 +3,8 @@
 // Service for processing boundary pairs using OpenAI
 // ------------------------------------------------------------
 import pLimit from "p-limit";
-import { getBoundaryPrompt } from "../prompts/boundaryPrompts.js";
-import { safeJsonParse } from "../utils/safeJsonParse.js";
+import { getBoundaryPrompt } from "../prompts/boundaryPrompts.ts";
+import { safeJsonParse } from "../utils/safeJsonParse.ts";
 
 /**
  * Process boundary pairs with GPT

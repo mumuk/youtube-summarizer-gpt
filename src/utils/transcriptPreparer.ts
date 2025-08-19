@@ -7,7 +7,7 @@
  * @property {number} [duration] - Длительность (опционально)
  */
 
-import {countTokens} from "./tokenCounter.js";
+import {countTokens} from "./tokenCounter.ts";
 
 /**
  * Подготавливает транскрипт: очищает текст, объединяет фразы и считает токены.

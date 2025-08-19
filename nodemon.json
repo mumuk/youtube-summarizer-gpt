@@ -1,6 +1,6 @@
 {
-  "watch": ["."],
+  "watch": ["src"],
   "ignore": ["node_modules"],
-  "ext": "js,json",
-  "exec": "node index.js"
+  "ext": "ts,json",
+  "exec": "ts-node-esm src/index.ts"
 }
