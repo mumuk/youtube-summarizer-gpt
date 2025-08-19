@@ -1,4 +1,4 @@
-import { extractVideoId, timeToSeconds } from '../utils/youtube.js';
+import { extractVideoId, timeToSeconds } from '../utils/youtube.ts';
 
 export async function getChapters(url) {
     const videoId = extractVideoId(url);

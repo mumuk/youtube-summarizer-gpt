@@ -1,7 +1,8 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import OpenAI from 'openai';
-import { countTokens } from '../../utils/tokenCounter.js';
-import { saveSummary } from '../../utils/save-summary.js';
+import { countTokens } from '../../utils/tokenCounter.ts';
+import { saveSummary } from '../../utils/save-summary.ts';
+import { SummaryRequestBody, SummaryResponse, SummaryBlock, ErrorResponse } from '../../types.ts';
 
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -9,12 +10,9 @@ const MIN_TEXT_TOKEN_LIMIT = 300;
 
 /**
  * Генерирует краткое резюме для блока текста на указанном языке.
- * @param {string} text - Текст блока.
- * @param {string} language - Целевой язык для саммари.
- * @returns {Promise<string>} - Сгенерированное резюме или оригинальный текст.
  */
-async function summarizeBlock(text, language) {
-    console.log('summary route')
+async function summarizeBlock(text: string, language: string): Promise<string> {
+    console.log('summary route');
     const systemPrompt = `Respond only with valid JSON {"summary": string}. No markdown, no backticks, no extra text.
 Persist: Stay engaged until the task is fully complete.
 Tool-first: If you need information—call a tool; do not guess.
@@ -55,11 +53,8 @@ ${text}`;
 
 /**
  * Переводит объект блока (title, summary, text) на целевой язык.
- * @param {{title: string, summary: string, text: string}} blockObj
- * @param {string} targetLanguage
- * @returns {Promise<{title: string, summary: string, text: string}>}
  */
-async function translateBlock(blockObj, targetLanguage) {
+async function translateBlock(blockObj: {title: string; summary: string; text: string}, targetLanguage: string): Promise<{title: string; summary: string; text: string}> {
     const payload = JSON.stringify(blockObj);
     const systemPrompt = `Respond only with valid JSON in the same structure as input: {"title": string, "summary": string, "text": string}. No extra text.
 Persist: Stay engaged until the task is fully complete.
@@ -88,32 +83,28 @@ ${payload}`;
     }
 }
 
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request<{}, any, SummaryRequestBody>, res: Response<SummaryResponse | ErrorResponse>) => {
     const { blocks, textLanguage, transcriptLanguage } = req.body;
 
     if (!Array.isArray(blocks)) {
         return res.status(400).json({ error: 'Missing or invalid "blocks" array' });
     }
 
-    // Определяем целевой язык вывода
     const targetLanguage = (transcriptLanguage && transcriptLanguage !== textLanguage)
         ? transcriptLanguage
         : textLanguage;
 
     try {
-        // Генерируем summary и переводим при необходимости для каждого блока параллельно
-        const results = await Promise.all(
-            blocks.map(async (block) => {
-                const { title, text, tokens } = block;
+        const results: SummaryBlock[] = await Promise.all(
+            blocks.map(async (block): Promise<SummaryBlock> => {
+                const { title, text } = block;
 
-                // Генерируем summary на targetLanguage, встроенная проверка MIN_TEXT_TOKEN_LIMIT
                 const summary = await summarizeBlock(text, targetLanguage);
 
                 let finalTitle = title;
                 let finalText = text;
                 let finalSummary = summary;
 
-                // Перевод title и text, если targetLanguage отличается от оригинального
                 if (targetLanguage && targetLanguage !== textLanguage) {
                     const translated = await translateBlock({
                         title: finalTitle,
@@ -125,7 +116,6 @@ router.post('/', async (req, res) => {
                     finalText = translated.text;
                 }
 
-                // Подсчёт токенов для всего объекта
                 const combined = `${finalTitle} ${finalSummary} ${finalText}`;
                 const combinedTokens = countTokens(combined);
 
@@ -138,10 +128,8 @@ router.post('/', async (req, res) => {
             })
         );
 
-        // Сохраняем результат в Markdown
         saveSummary(results);
 
-        // Отправляем ответ
         return res.json({
             textLanguage,
             transcriptLanguage: targetLanguage,

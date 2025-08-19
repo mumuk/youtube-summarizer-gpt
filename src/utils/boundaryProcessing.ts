@@ -5,9 +5,9 @@
 // ------------------------------------------------------------
 
 import pLimit from "p-limit";
-import { boundaryPrompt41, boundaryPrompt4o } from "../prompts/boundaryPrompts.js";
-import { Models } from "../prompts/semanticPrompts.js";
-import { safeJsonParse } from "./safeJsonParse.js";
+import { boundaryPrompt41, boundaryPrompt4o } from "../prompts/boundaryPrompts.ts";
+import { Models } from "../prompts/semanticPrompts.ts";
+import { safeJsonParse } from "./safeJsonParse.ts";
 
 /**
  * Extract boundary pairs (prev/next blocks) across chunk borders.

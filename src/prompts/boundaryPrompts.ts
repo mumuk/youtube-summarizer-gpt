@@ -3,7 +3,7 @@
 // Boundary prompts for cleaning overlaps between chunk borders.
 // Includes single-pair and batch variants.
 // ------------------------------------------------------------
-import { Models, ActiveModel } from "../config/models.js";
+import { Models, ActiveModel } from "../config/models.ts";
 
 /* ──────────────────────────────────────────────
    GPT-4.1-mini batch boundary prompt

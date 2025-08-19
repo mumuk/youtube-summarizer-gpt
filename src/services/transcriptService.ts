@@ -3,9 +3,9 @@
 import fetch from 'node-fetch';
 import path from 'path';
 import { google } from 'googleapis';
-import { getOAuthClient } from './oauthClient.js';
-import { extractVideoId } from '../utils/youtube.js';
-import { parseCaptionsXml } from '../utils/captionParser.js';
+import { getOAuthClient } from './oauthClient.ts';
+import { extractVideoId } from '../utils/youtube.ts';
+import { parseCaptionsXml } from '../utils/captionParser.ts';
 import { execFile } from 'child_process';
 
 // ─────────────────────────────────────────────────────────────
