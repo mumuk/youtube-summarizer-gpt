@@ -6,7 +6,7 @@
 import { encoding_for_model } from 'tiktoken';
 
 // Model used for token encoding/decoding
-const model = 'gpt-3.5-turbo'; // can be changed to 'gpt-4'
+const model: string = 'gpt-3.5-turbo'; // can be changed to 'gpt-4'
 const encoder = encoding_for_model(model);
 const textDecoder = new TextDecoder('utf-8');
 /**
@@ -14,7 +14,7 @@ const textDecoder = new TextDecoder('utf-8');
  * @param {string} text - Text to analyze
  * @returns {number} - Token count
  */
-export function countTokens(input) {
+export function countTokens(input: string | number[]): number {
     const text = Array.isArray(input)
         ? encoder.decode(input)
         : String(input);
@@ -27,7 +27,7 @@ export function countTokens(input) {
  * @param {number} maxTokens - Maximum allowed tokens
  * @returns {string} - Trimmed text
  */
-export function trimByTokens(text, maxTokens) {
+export function trimByTokens(text: string, maxTokens: number): string {
     const tokens = encoder.encode(text);
     if (tokens.length <= maxTokens) return text;
     const trimmedTokens = tokens.slice(0, maxTokens);
@@ -39,7 +39,7 @@ export function trimByTokens(text, maxTokens) {
  * @param {string} text - Text to encode
  * @returns {number[]} - Array of token IDs
  */
-export function encode(text) {
+export function encode(text: string): number[] {
     return encoder.encode(text);
 }
 
@@ -48,9 +48,9 @@ export function encode(text) {
  * @param {number[]} tokens - Array of token IDs
  * @returns {string} - Decoded text
  */
-export function decode(tokens) {
+export function decode(tokens: number[]): string {
     // tiktoken.decode возвращает Uint8Array → нуждаем в TextDecoder
-    const bytes = encoder.decode(tokens);     // Uint8Array
-    const text  = textDecoder.decode(bytes);  // string
+    const bytes = encoder.decode(tokens); // Uint8Array
+    const text = textDecoder.decode(bytes); // string
     return text;
 }

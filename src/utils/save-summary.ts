@@ -2,12 +2,12 @@
 
 import fs from 'fs';
 import path from 'path';
+import { SummaryBlock } from '../types.ts';
 
 /**
  * Сохраняет массив блоков в формате Markdown в output/summary.md
- * @param {Array<{title: string, summary: string, text: string, tokens: number}>} blocks - массив блоков для сохранения
  */
-export function saveSummary(blocks) {
+export function saveSummary(blocks: SummaryBlock[]): void {
     try {
         const outputDir = path.resolve('output');
         if (!fs.existsSync(outputDir)) {
@@ -29,6 +29,10 @@ export function saveSummary(blocks) {
         fs.writeFileSync(outputPath, markdown, 'utf-8');
         console.log(`✅ Saved summary to: ${outputPath}`);
     } catch (error) {
-        console.error('❌ Failed to save summary.md:', error.message);
+        if (error instanceof Error) {
+            console.error('❌ Failed to save summary.md:', error.message);
+        } else {
+            console.error('❌ Failed to save summary.md:', error);
+        }
     }
 }
