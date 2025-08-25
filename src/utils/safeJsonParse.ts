@@ -7,15 +7,14 @@
 
 /**
  * Attempts to safely extract and parse JSON from GPT output.
- * @param {string} raw - raw string from GPT (may contain noise or markdown)
- * @param {object} [options]
- * @param {boolean} [options.expectArray=false] - if true, extract array `[...]` instead of object `{...}`
- * @returns {any|null} parsed JSON object or null if parsing fails
  */
-export function safeJsonParse(raw, { expectArray = false } = {}) {
+export function safeJsonParse<T = unknown>(
+    raw: string,
+    { expectArray = false }: { expectArray?: boolean } = {}
+): T | null {
     if (!raw || typeof raw !== "string") return null;
 
-    let cleaned = raw.trim();
+    let cleaned: string = raw.trim();
 
     // Убираем Markdown-код блоки: ```json ... ```
     cleaned = cleaned.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();

@@ -5,15 +5,16 @@
 // ------------------------------------------------------------
 
 import { countTokens, encode, decode } from "./tokenCounter.ts";
+import { ChunkConfigOptions, ChunkConfig, TextChunk } from './textChunker.types.ts';
 
 /**
  * Compute number of chunks, overlap, and total tokens.
  */
 export function computeChunkConfig(
-    text,
-    { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 } = {}
-) {
-    const totalTokens = countTokens(text);
+    text: string,
+    { defaultChunks = 6, maxConcurrency = 8, defaultOverlap = 0.05 }: ChunkConfigOptions = {},
+): ChunkConfig {
+    const totalTokens: number = countTokens(text);
     const minChunkSize = 1000;
     let numberOfChunks = Math.ceil(totalTokens / minChunkSize);
     numberOfChunks = Math.max(1, Math.min(numberOfChunks, maxConcurrency));
@@ -30,19 +31,23 @@ export function computeChunkConfig(
     return { totalTokens, numberOfChunks, overlapTokens, concurrency: numberOfChunks };
 }
 
+
 /**
  * Splits text into semantic chunks with logging at each step.
  */
-export function splitByTokenCount(text, options = {}) {
+export function splitByTokenCount(
+    text: string,
+    options: ChunkConfigOptions = {},
+): TextChunk[] {
     const { totalTokens, numberOfChunks, overlapTokens } = computeChunkConfig(text, options);
     console.log(`
 [textChunker] CONFIG → totalTokens=${totalTokens}, numberOfChunks=${numberOfChunks}, overlapTokens=${overlapTokens}`);
 
     console.log(`[textChunker] Input text snippet: "${text.slice(0,100).replace(/\n/g,' ')}..."`);
-    const tokens = encode(text);
+    const tokens: number[] = encode(text);
     console.log(`[textChunker] Tokens sample: first10=${tokens.slice(0,10)}, last10=${tokens.slice(-10)}`);
 
-    const chunks = [];
+    const chunks: TextChunk[] = [];
     let startToken = 0;
     const baseSize = Math.floor((totalTokens + overlapTokens * (numberOfChunks - 1)) / numberOfChunks);
 
@@ -52,7 +57,7 @@ export function splitByTokenCount(text, options = {}) {
         const sliceCount = sizeTokens + (i > 0 ? overlapTokens : 0);
         console.log(`[textChunker] chunk ${i+1}: startToken=${startToken}, sizeTokens=${sizeTokens}, overlapTokens=${overlapTokens}`);
 
-        const chunkTokens = tokens.slice(startToken, startToken + sliceCount);
+        const chunkTokens: number[] = tokens.slice(startToken, startToken + sliceCount);
         console.log(`[textChunker] raw chunkTokens: first5=${chunkTokens.slice(0,5)}, last5=${chunkTokens.slice(-5)}`);
 
         const chunkTextRaw = decode(chunkTokens);
